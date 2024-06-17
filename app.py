@@ -1,81 +1,68 @@
 """
-get the user's question
-Run the next two functions in parallel:
-  Function 1 (query for the sources + query for the answer)
-  Function 2 (query for similar questions)
-
-Wait until sources + similar_questions are done, then respond with a stream. The stream will start off with sources and similar_questions, but will be pumping out chunks for the answer.
-
-Example response:
-
-Answer:
-  Start streaming...
-
-Sources:
-  - source1
-  - source2
-  - source3
-
-Similar Questions:
-  - question1
+1. Call getSources to get sources
+2. Call getAnswer & getSimilarQuestions in parallel
 """
 
 import asyncio
+import os
+import requests
+import json
+from pydantic import BaseModel, ValidationError
+from typing import List
+from dotenv import load_dotenv
+
+load_dotenv()
+
+
+async def getSources(question: str):
+    SERPER_API_KEY = os.getenv("SERPER_API_KEY")
+    if not SERPER_API_KEY:
+        raise ValueError("SERPER_API_KEY is required")
+
+    response = requests.post(
+        "https://google.serper.dev/search",
+        headers={"X-API-KEY": SERPER_API_KEY, "Content-Type": "application/json"},
+        data=json.dumps({"q": question, "num": 6}),
+    )
+
+    response.raise_for_status()
+    raw_json = response.json()
+
+    # Define the schema using Pydantic
+    class Result(BaseModel):
+        title: str
+        link: str
+
+    class SerperResponse(BaseModel):
+        organic: List[Result]
+
+    # Validate the response
+    try:
+        data = SerperResponse.model_validate(raw_json)
+    except ValidationError as e:
+        print("JSON validation error:", e.json())
+        raise
+
+    results = [{"name": result.title, "url": result.link} for result in data.organic]
+    print("===== Sources ======")
+    for i, result in enumerate(results):
+        print(f"Source {i + 1}:", f"{result['name']} [{result['url']}]")
+
+
+async def getAnswer(question: str):
+    print("===== Answer ======")
+    print("Some answer here")
+
+
+async def getSimilarQuestions(question: str):
+    print("===== Similar Questions ======")
+    print("Some similar qs here")
 
 
 async def main():
-    # Get the user's question
-    question = "Some question"
-
-    # Create a stream
-    # return_stream
-
-    response = await asyncio.gather(
-        getSourcesAndAnswer(question), getSimilarQuestions(question)
-    )
-
-    # Next step:
-    # Create a stream
-    # Write "a" to it
-    # Await asyncio.sleep(1)
-    # Write "b" to it
-    # Close it
-
-    # response will have [{ sources: [], answer_stream: stream}, { similar_questions_promise: Promise<[]>}]
-
-    # 1. Write to our stream with whatever answer_stream gives us
-    # e.g. return_stream.write("Answer: ")
-    # e.g. return_stream.write(answer_stream.read())
-
-    # 2. Keep doing that until answer_stream closes
-
-    # 3. Write the all the sources (because we have them, since we had to wait for them to load) to our return_stream
-    # e.g. return_stream.write("Sources: ")
-    # e.g. return_stream.write(sources.map)
-
-    # 4. Await similar_questions_promise to finish
-    # let similar_questions = await similar_questions_promise
-
-    # 5. Write the similar_questions to our return_stream
-    # e.g. return_stream.write("Similar questions:")
-    # e.g. return_stream.write(similar_questions)
-
-    # 6. Close the return_stream
-
-
-async def getSourcesAndAnswer():
-    print("Fetching sources")
-    await asyncio.sleep(2)
-
-    # Start fetching Answer with stream: true
-    # Return { sources: [], answer: stream }
-
-
-async def getSimilarQuestions():
-    print("Fetching similar questions...")
-    await asyncio.sleep(2)
-
-    # Return { similar_questions_promise: Promise<[]> }
+    question = "fun things to do in NYC"
+    await getSources(question)
+    await asyncio.gather(getAnswer(question), getSimilarQuestions(question))
 
 
 asyncio.run(main())
