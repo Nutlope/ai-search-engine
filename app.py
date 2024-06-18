@@ -1,27 +1,23 @@
-"""
-1. Call getSources to get sources
-2. Call getAnswer & getSimilarQuestions in parallel
-"""
+# Open source AI search engine in 150 LOC
 
 import asyncio
 import os
 import requests
 import json
-from pydantic import BaseModel, ValidationError, conlist
+from pydantic import BaseModel, ValidationError
 from typing import List
 from dotenv import load_dotenv
 from together import Together
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 
-client = Together(api_key=os.environ.get("TOGETHER_API_KEY"))
 load_dotenv()
-
 TOGETHER_API_KEY = os.getenv("TOGETHER_API_KEY")
 SERPER_API_KEY = os.getenv("SERPER_API_KEY")
 
+client = Together(api_key=os.environ.get("TOGETHER_API_KEY"))
 
-# Define the schema using Pydantic
+
 class SourceType(BaseModel):
     title: str
     link: str
@@ -80,7 +76,7 @@ async def getSources(question: str):
 
 
 async def getAnswer(question: str, sources: list[SourceType]):
-    print("===== Answer ======")
+
     final_results = await asyncio.gather(*map(fetch_and_parse, sources))
     main_answer_prompt = f"""
     Given a user question and some context, please write a clean, concise and accurate answer to the question based on the context. You will be given a set of related contexts to the question, each starting with a reference number like [[citation:x]], where x is a number. Please use the context when crafting your answer.
@@ -101,12 +97,13 @@ async def getAnswer(question: str, sources: list[SourceType]):
             {"role": "user", "content": question},
         ],
     )
-
+    print("===== Answer ======", "\n")
+    print(response.choices[0].message.content.strip())
     return response.choices[0].message.content.strip()
 
 
 class StringArrayModel(BaseModel):
-    my_list: List[str]
+    my_list: list[str]
 
 
 async def getSimilarQuestions(question: str):
@@ -123,24 +120,15 @@ async def getSimilarQuestions(question: str):
             {"role": "system", "content": prompt},
             {"role": "user", "content": question},
         ],
-        response_format={
-            "type": "json_object",
-            "schema": StringArrayModel.model_json_schema(),
-        },
     )
-
+    print(response.choices[0].message.content)
     return response.choices[0].message.content
 
 
 async def main():
-    question = "fun things to do in NYC"
+    question = "What are some fun things to do in San Francisco?"
     sources = await getSources(question)
-    answer = await getAnswer(question, sources)
-    print("\n")
-    print(answer)
-    similar_questions = await getSimilarQuestions(question)
-    print(similar_questions)
-    # await asyncio.gather(getAnswer(question, sources), getSimilarQuestions(question))
+    await asyncio.gather(getAnswer(question, sources), getSimilarQuestions(question))
 
 
 asyncio.run(main())
