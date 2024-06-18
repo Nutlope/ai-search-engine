@@ -7,7 +7,7 @@ import asyncio
 import os
 import requests
 import json
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, ValidationError, conlist
 from typing import List
 from dotenv import load_dotenv
 from together import Together
@@ -105,9 +105,31 @@ async def getAnswer(question: str, sources: list[SourceType]):
     return response.choices[0].message.content.strip()
 
 
+class StringArrayModel(BaseModel):
+    my_list: List[str]
+
+
 async def getSimilarQuestions(question: str):
     print("===== Similar Questions ======")
-    print("Some similar qs here")
+
+    prompt = """
+    You are a helpful assistant that helps the user to ask related questions, based on user's original question. Please identify worthwhile topics that can be follow-ups, and write 3 questions no longer than 20 words each. Please make sure that specifics, like events, names, locations, are included in follow up questions so they can be asked standalone. For example, if the original question asks about "the Manhattan project", in the follow up question, do not just say "the project", but use the full name "the Manhattan project". Your related questions must be in the same language as the original question.
+
+    Please provide these 3 related questions as a JSON array of 3 strings. Do NOT repeat the original question. ONLY return the JSON array, I will get fired if you don't return JSON. Here is the user's original question:
+    """
+    response = client.chat.completions.create(
+        model="mistralai/Mixtral-8x7B-Instruct-v0.1",
+        messages=[
+            {"role": "system", "content": prompt},
+            {"role": "user", "content": question},
+        ],
+        response_format={
+            "type": "json_object",
+            "schema": StringArrayModel.model_json_schema(),
+        },
+    )
+
+    return response.choices[0].message.content
 
 
 async def main():
@@ -116,6 +138,8 @@ async def main():
     answer = await getAnswer(question, sources)
     print("\n")
     print(answer)
+    similar_questions = await getSimilarQuestions(question)
+    print(similar_questions)
     # await asyncio.gather(getAnswer(question, sources), getSimilarQuestions(question))
 
 
