@@ -1,6 +1,6 @@
-# AI search engine in 150 LOC
+# AI search engine in 100 LOC
 
-> An open source AI engine in 150 lines of Python. Rewrite of [TurboSeek](https://github.com/Nutlope/turboseek) (full-stack Next.js site).
+> An open source AI engine in 100 lines of Python. Rewrite of [TurboSeek](https://github.com/Nutlope/turboseek) (full-stack Next.js site).
 
 ## Running locally
 
